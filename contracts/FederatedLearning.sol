@@ -144,7 +144,7 @@ contract FederatedLearning is ERC20 {
         if (modelIndices.length != 0) {
             for (uint i = 0; i < modelIndices.length; i++) {
                 require(modelIndices[i] < latestModelIndex, "Invalid model index"); 
-                require(modelIndices[i] >= latestModelIndex - VotableModelNum, "Invalid model index");
+                require(modelIndices[i] >= (latestModelIndex > VotableModelNum ? latestModelIndex - VotableModelNum : 0), "Invalid model index");
             }
         }
     }
