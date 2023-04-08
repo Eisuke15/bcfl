@@ -170,7 +170,7 @@ contract FederatedLearning is ERC20 {
             return false;
         }
 
-        for (uint i = models.length; i > 0 && i > models.length - VotableModelNum; i--) {
+        for (uint i = models.length; i > 0 && (models.length > VotableModelNum && i > models.length - VotableModelNum); i--) {
             if (models[i - 1].author == clientAddress) {
                 return false;
             }
