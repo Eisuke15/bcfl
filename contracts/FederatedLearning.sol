@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract FederatedLearning is ERC20 {
     uint public constant ClientNumThres = 10; // The threshold of the number of clients
 
-    uint public constant ClientNumWithLearningRight = 3; // The number of clients with learning right. This value should be larger.
+    uint public constant ClientWithLearnigLightNum = 3; // The number of clients with learning right. This value should be larger.
     uint public constant VotableModelNum = 3; // The number of models that can be voted. This value should be larger.
-    // Sum of ClientNumWithLearningRight and VotableModelNum must be far less than ClientNumThres.
+    // Sum of ClientWithLearnigLightNum and VotableModelNum must be far less than ClientNumThres.
 
     uint public constant VoteNum = 1; // The number of votes that a client can put.
     string public initialModelCID;
@@ -68,7 +68,7 @@ contract FederatedLearning is ERC20 {
     function grantLearningRights() private {
         uint salt = 0;
         uint clientWithRightNum = 0;
-        while (clientWithRightNum < ClientNumWithLearningRight) {
+        while (clientWithRightNum < ClientWithLearnigLightNum) {
             address clientAddress = clients[random(clients.length, salt++)];
             Client storage client = clientInfo[clientAddress];
 
