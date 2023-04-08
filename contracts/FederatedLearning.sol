@@ -57,7 +57,7 @@ contract FederatedLearning is ERC20 {
         models.push(Model(_newModelCID, msg.sender));
         client.hasLearningRight = false;
 
-        for (uint i = 0; i < VoteNum; i++) {
+        for (uint i = 0; i < modelIndices.length; i++) {
             Model storage votedModel = models[modelIndices[i]];
             _mint(votedModel.author, 1);
         }
