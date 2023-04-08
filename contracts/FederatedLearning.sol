@@ -66,15 +66,17 @@ contract FederatedLearning is ERC20 {
     }
 
     function grantLearningRights() private {
-        for (uint i = 0; i < ClientNumWithLearningRight; i++) {
-            uint randomIndex = random(clients.length, i);
-            address clientAddress = clients[randomIndex];
+        uint salt = 0;
+        uint clientWithRightNum = 0;
+        while (clientWithRightNum < ClientNumWithLearningRight) {
+            address clientAddress = clients[random(clients.length, salt++)];
             Client storage client = clientInfo[clientAddress];
 
             if (!client.hasLearningRight) {
                 client.hasLearningRight = true;
                 client.latestModelIndex = models.length;
                 emit LearningRightGranted(clientAddress, models.length);
+                clientWithRightNum++;
             }
         }
     }
