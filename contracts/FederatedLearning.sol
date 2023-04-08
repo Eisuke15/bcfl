@@ -62,7 +62,8 @@ contract FederatedLearning is ERC20 {
             _mint(votedModel.author, 1);
         }
 
-        updateLearningRights();
+        revokeOldestLearningRight();
+        grantLearningRights();
     }
 
     function grantLearningRights() private {
@@ -70,7 +71,7 @@ contract FederatedLearning is ERC20 {
         uint numEligibleClients = eligibleClients.length;
 
         uint salt = 0;
-        uint _clientWithRightNum = 0;
+        uint _clientWithRightNum = countClientsWithRight();
         while (_clientWithRightNum < ClientWithLearnigLightNum) {
             address selectedClientAddress = eligibleClients[random(numEligibleClients, salt++)];
             Client storage client = clientInfo[selectedClientAddress];
@@ -84,37 +85,35 @@ contract FederatedLearning is ERC20 {
         }
     }
 
+    function countClientsWithRight() private view returns (uint) {
+        uint numClientsWithRight = 0;
+        for (uint i = 0; i < clients.length; i++) {
+            if (clientInfo[clients[i]].hasLearningRight) {
+                numClientsWithRight++;
+            }
+        }
+        return numClientsWithRight;
+    }
+
+    function revokeOldestLearningRight() private {
+        uint oldestModelIndex = models.length;
+        address oldestClientAddress;
+        for (uint i = 0; i < clients.length; i++) {
+            Client storage client = clientInfo[clients[i]];
+            if (client.hasLearningRight && client.latestModelIndex < oldestModelIndex) {
+                oldestModelIndex = client.latestModelIndex;
+                oldestClientAddress = clients[i];
+            }
+        }
+        clientInfo[oldestClientAddress].hasLearningRight = false;
+    }
+
     
     // calculate a random number between 0 and max - 1
     function random(uint max, uint counter) private view returns (uint) {
         return uint(keccak256(abi.encodePacked(block.timestamp, counter))) % max;
     }
 
-
-    function updateLearningRights() private {
-        address[] memory eligibleClients = getEligibleClients();
-        uint numEligibleClients = eligibleClients.length;
-
-        uint counter = 0;
-        if (numEligibleClients >= 2) {
-            uint firstClientIndex = random(numEligibleClients, counter++);
-            uint secondClientIndex;
-            do {
-                secondClientIndex = random(numEligibleClients, counter++);
-            } while (secondClientIndex == firstClientIndex);
-            
-            grantLearningRightTo(eligibleClients[firstClientIndex]);
-            grantLearningRightTo(eligibleClients[secondClientIndex]);
-        }
-    }
-
-
-    function grantLearningRightTo(address clientAddress) private {
-        Client storage client = clientInfo[clientAddress];
-        client.hasLearningRight = true;
-        client.latestModelIndex = models.length;
-        emit LearningRightGranted(clientAddress, models.length);
-    }
 
     function modelExists(string memory _CID) private view returns (bool) {
         for (uint i = 0; i < models.length; i++) {
