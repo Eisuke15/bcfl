@@ -12,7 +12,8 @@ contract FederatedLearning is ERC20 {
     // Sum of ClientWithLearnigLightNum and VotableModelNum must be far less than ClientNumThres.
 
     uint public constant VoteNum = 1; // The number of votes that a client can put.
-    string public initialModelCID;
+
+    string public initialModelCID; // The CID of the initial model.
 
     struct Client {
         bool registered;
@@ -25,9 +26,9 @@ contract FederatedLearning is ERC20 {
         address author;
     }
 
-    address[] public clients;
+    address[] public clients; // The list of registered clients.
     mapping(address => Client) public clientInfo;
-    Model[] public models;
+    Model[] public models; // The list of submitted models.
 
     event LearningRightGranted(address indexed client, uint indexed modelIndex);
 
@@ -35,6 +36,7 @@ contract FederatedLearning is ERC20 {
         initialModelCID = _initialModelCID;
     }
 
+    // Register as a client.
     function register() external {
         require(!clientInfo[msg.sender].registered, "Already registered");
         clientInfo[msg.sender].registered = true;
@@ -45,6 +47,7 @@ contract FederatedLearning is ERC20 {
         }
     }
 
+    // Submit a new model and vote for existing models.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(clients.length >= ClientNumThres, "Not enough clients");
         Client storage client = clientInfo[msg.sender];
@@ -66,6 +69,7 @@ contract FederatedLearning is ERC20 {
         grantLearningRights();
     }
 
+    // Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
     function grantLearningRights() private {
         address[] memory eligibleClients = getEligibleClients();
         uint numEligibleClients = eligibleClients.length;
@@ -85,6 +89,7 @@ contract FederatedLearning is ERC20 {
         }
     }
 
+    // Count the number of clients with learning right.
     function countClientsWithRight() private view returns (uint) {
         uint numClientsWithRight = 0;
         for (uint i = 0; i < clients.length; i++) {
@@ -95,6 +100,7 @@ contract FederatedLearning is ERC20 {
         return numClientsWithRight;
     }
 
+    // Revoke the learning right of the client who got learning right the earliest.
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
         address oldestClientAddress;
@@ -115,6 +121,7 @@ contract FederatedLearning is ERC20 {
     }
 
 
+    // Check if the model CID already exists in `models`.
     function modelExists(string memory _CID) private view returns (bool) {
         for (uint i = 0; i < models.length; i++) {
             if (keccak256(abi.encodePacked(models[i].CID)) == keccak256(abi.encodePacked(_CID))) {
@@ -124,6 +131,7 @@ contract FederatedLearning is ERC20 {
         return false;
     }
 
+    // Convert the model CIDs to indices of `models`.
     function getModelIndices(string[] memory _modelCIDs) private view returns (uint[] memory) {
         uint[] memory indices = new uint[](_modelCIDs.length);
         for (uint i = 0; i < _modelCIDs.length; i++) {
@@ -137,6 +145,7 @@ contract FederatedLearning is ERC20 {
         return indices;
     }
 
+    // Validate the indices of the models that a client voted.
     function validateModelIndices(uint latestModelIndex, uint[] memory modelIndices) private pure {
         uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
 
@@ -149,6 +158,7 @@ contract FederatedLearning is ERC20 {
         }
     }
 
+    // Get the addresses of the clients who are eligible to get learning right.
     function getEligibleClients() private view returns (address[] memory) {
         address[] memory tempEligibleClients = new address[](clients.length);
         uint numEligibleClients = 0;
@@ -168,6 +178,7 @@ contract FederatedLearning is ERC20 {
     }
 
 
+    // Check if a client is eligible to get learning right.
     function isClientEligible(address clientAddress) private view returns (bool) {
         Client storage client = clientInfo[clientAddress];
         if (client.hasLearningRight || !client.registered) {
