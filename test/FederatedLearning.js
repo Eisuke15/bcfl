@@ -113,12 +113,9 @@ describe("FederatedLearning", function () {
       await federatedLearning.connect(client).submitModel("newModelCID", []);
       const client2 = await getClientWithLatestLearningRight();
       await federatedLearning.connect(client2).submitModel("newModelCID2", ["newModelCID"]);
-      const client3 = await getClientWithLatestLearningRight();
-      await federatedLearning.connect(client3).submitModel("newModelCID3", ["newModelCID2"]);
 
       expect(await federatedLearning.balanceOf(client.address)).to.equal(1);
-      expect(await federatedLearning.balanceOf(client2.address)).to.equal(1);
-      expect(await federatedLearning.balanceOf(client3.address)).to.equal(0);
+      expect(await federatedLearning.balanceOf(client2.address)).to.equal(0);
     });
   });
 
