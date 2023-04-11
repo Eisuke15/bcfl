@@ -30,7 +30,7 @@ contract FederatedLearning is ERC20 {
     mapping(address => Client) public clientInfo;
     Model[] public models; // The list of submitted models.
 
-    event LearningRightGranted(address indexed client, uint indexed modelIndex);
+    event LearningRightGranted(address indexed client, uint indexed latestModelIndex);
 
     constructor(string memory _initialModelCID) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
