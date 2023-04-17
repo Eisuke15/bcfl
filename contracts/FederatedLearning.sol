@@ -5,13 +5,13 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract FederatedLearning is ERC20 {
-    uint public constant ClientNumThres = 10; // The threshold of the number of clients
+    uint public ClientNumThres; // The threshold of the number of clients
 
-    uint public constant ClientWithLearnigLightNum = 3; // The number of clients with learning right. This value should be larger.
-    uint public constant VotableModelNum = 3; // The number of models that can be voted. This value should be larger.
+    uint public ClientWithLearnigLightNum; // The number of clients with learning right. This value should be larger.
+    uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
     // Sum of ClientWithLearnigLightNum and VotableModelNum must be far less than ClientNumThres.
 
-    uint public constant VoteNum = 1; // The number of votes that a client can put.
+    uint public VoteNum; // The number of votes that a client can put.
 
     string public initialModelCID; // The CID of the initial model.
 
@@ -32,8 +32,18 @@ contract FederatedLearning is ERC20 {
 
     event LearningRightGranted(address indexed client, uint indexed latestModelIndex);
 
-    constructor(string memory _initialModelCID) ERC20("Federated Learning Token", "FLT") {
+    constructor(
+        string memory _initialModelCID,
+        uint _ClientNumThres,
+        uint _ClientWithLearnigLightNum,
+        uint _VotableModelNum,
+        uint _VoteNum
+        ) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
+        ClientNumThres = _ClientNumThres;
+        ClientWithLearnigLightNum = _ClientWithLearnigLightNum;
+        VotableModelNum = _VotableModelNum;
+        VoteNum = _VoteNum;
     }
 
     // Register as a client.
@@ -146,10 +156,10 @@ contract FederatedLearning is ERC20 {
     }
 
     // Validate the indices of the models that a client voted.
-    function validateModelIndices(uint latestModelIndex, uint[] memory modelIndices) private pure {
+    function validateModelIndices(uint latestModelIndex, uint[] memory modelIndices) private view {
         uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
 
-        require(_voteNum == modelIndices.length, "Invalid number of vote");
+        require(_voteNum == modelIndices.length, "Invalid number of vote"); // ここが機能してない
         if (modelIndices.length != 0) {
             for (uint i = 0; i < modelIndices.length; i++) {
                 require(modelIndices[i] < latestModelIndex, "Invalid model index"); 
