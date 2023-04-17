@@ -7,15 +7,16 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract FederatedLearning is ERC20 {
     uint public ClientNumThres; // The threshold of the number of clients
 
-    uint public ClientWithLearnigLightNum; // The number of clients with learning right. This value should be larger.
+    uint public ClientWithRightNum; // The number of clients with learning right. This value should be larger.
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
-    // Sum of ClientWithLearnigLightNum and VotableModelNum must be far less than ClientNumThres.
+    // Sum of ClientWithRightNum and VotableModelNum must be far less than ClientNumThres.
 
     uint public VoteNum; // The number of votes that a client can put.
 
     string public initialModelCID; // The CID of the initial model.
 
     struct Client {
+        uint index;
         bool registered;
         bool hasLearningRight;
         uint latestModelIndex;
@@ -23,7 +24,7 @@ contract FederatedLearning is ERC20 {
 
     struct Model {
         string CID;
-        address author;
+        uint authorIndex;
     }
 
     address[] public clients; // The list of registered clients.
@@ -35,13 +36,13 @@ contract FederatedLearning is ERC20 {
     constructor(
         string memory _initialModelCID,
         uint _ClientNumThres,
-        uint _ClientWithLearnigLightNum,
+        uint _ClientWithRightNum,
         uint _VotableModelNum,
         uint _VoteNum
         ) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
         ClientNumThres = _ClientNumThres;
-        ClientWithLearnigLightNum = _ClientWithLearnigLightNum;
+        ClientWithRightNum = _ClientWithRightNum;
         VotableModelNum = _VotableModelNum;
         VoteNum = _VoteNum;
     }
@@ -50,6 +51,7 @@ contract FederatedLearning is ERC20 {
     function register() external {
         require(!clientInfo[msg.sender].registered, "Already registered");
         clientInfo[msg.sender].registered = true;
+        clientInfo[msg.sender].index = clients.length;
         clients.push(msg.sender);
 
         if (clients.length == ClientNumThres) {
@@ -67,12 +69,12 @@ contract FederatedLearning is ERC20 {
         uint[] memory modelIndices = getModelIndices(_votedModelCIDs);
         validateModelIndices(client.latestModelIndex, modelIndices);
 
-        models.push(Model(_newModelCID, msg.sender));
+        models.push(Model(_newModelCID, client.index));
         client.hasLearningRight = false;
 
         for (uint i = 0; i < modelIndices.length; i++) {
             Model storage votedModel = models[modelIndices[i]];
-            _mint(votedModel.author, 1);
+            _mint(clients[votedModel.authorIndex], 1);
         }
 
         revokeOldestLearningRight();
@@ -81,21 +83,21 @@ contract FederatedLearning is ERC20 {
 
     // Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
     function grantLearningRights() private {
-        address[] memory eligibleClients = getEligibleClients();
-        uint numEligibleClients = eligibleClients.length;
+        uint[] memory eligibleClientIndices = getEligibleClientIndices();
+        uint _clientWithRightNum = countClientsWithRight();
+
+        require(eligibleClientIndices.length >= ClientWithRightNum - _clientWithRightNum, "Not enough eligible clients");
 
         uint salt = 0;
-        uint _clientWithRightNum = countClientsWithRight();
-        while (_clientWithRightNum < ClientWithLearnigLightNum) {
-            address selectedClientAddress = eligibleClients[random(numEligibleClients, salt++)];
-            Client storage client = clientInfo[selectedClientAddress];
-
-            if (!client.hasLearningRight) {
-                client.hasLearningRight = true;
-                client.latestModelIndex = models.length;
-                emit LearningRightGranted(selectedClientAddress, models.length);
-                _clientWithRightNum++;
-            }
+        while (_clientWithRightNum < ClientWithRightNum) {
+            uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, salt++)];
+            Client storage client = clientInfo[clients[selectedClientIndex]];
+            client.hasLearningRight = true;
+            client.latestModelIndex = models.length;
+            emit LearningRightGranted(clients[selectedClientIndex], models.length);
+            _clientWithRightNum++;
+            
+            eligibleClientIndices = getEligibleClientIndices();
         }
     }
 
@@ -168,40 +170,31 @@ contract FederatedLearning is ERC20 {
         }
     }
 
-    // Get the addresses of the clients who are eligible to get learning right.
-    function getEligibleClients() private view returns (address[] memory) {
-        address[] memory tempEligibleClients = new address[](clients.length);
-        uint numEligibleClients = 0;
-
+    function getEligibleClientIndices() private view returns (uint[] memory) {
+        bool[] memory isEligible = new bool[](clients.length);
+        uint numEligibleClients = clients.length;
         for (uint i = 0; i < clients.length; i++) {
-            if (isClientEligible(clients[i])) {
-                tempEligibleClients[numEligibleClients++] = clients[i];
-            }
-        }
-
-        address[] memory eligibleClients = new address[](numEligibleClients);
-        for (uint i = 0; i < numEligibleClients; i++) {
-            eligibleClients[i] = tempEligibleClients[i];
-        }
-
-        return eligibleClients;
-    }
-
-
-    // Check if a client is eligible to get learning right.
-    function isClientEligible(address clientAddress) private view returns (bool) {
-        Client storage client = clientInfo[clientAddress];
-        if (client.hasLearningRight || !client.registered) {
-            return false;
+            isEligible[i] = !clientInfo[clients[i]].hasLearningRight;
+            // decrement numEligibleClients if the client is not eligible
+            numEligibleClients -= isEligible[i] ? 0 : 1;
         }
 
         for (uint i = models.length; i > 0 && (models.length > VotableModelNum && i > models.length - VotableModelNum); i--) {
-            if (models[i - 1].author == clientAddress) {
-                return false;
+            // decrement numEligibleClients if the client is still eligible
+            numEligibleClients -= isEligible[models[i - 1].authorIndex] ? 1 : 0;
+            isEligible[models[i - 1].authorIndex] = false;
+        }
+
+        // return indices where isEligible is true
+        uint[] memory eligibleClientIndices = new uint[](numEligibleClients);
+        uint index = 0;
+        for (uint i = 0; i < clients.length; i++) {
+            if (isEligible[i]) {
+                eligibleClientIndices[index++] = i;
             }
         }
 
-        return true;
+        return eligibleClientIndices;
     }
 }
 
