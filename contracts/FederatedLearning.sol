@@ -31,6 +31,8 @@ contract FederatedLearning is ERC20 {
     mapping(address => Client) public clientInfo;
     Model[] public models; // The list of submitted models.
 
+    mapping(string => bool) public existingModelCIDs; // The mapping of existing model CIDs.
+
     event LearningRightGranted(address indexed client, uint indexed latestModelIndex);
 
     constructor(
@@ -64,11 +66,12 @@ contract FederatedLearning is ERC20 {
         require(clients.length >= ClientNumThres, "Not enough clients");
         Client storage client = clientInfo[msg.sender];
         require(client.hasLearningRight, "No learning right");
-        require(!modelExists(_newModelCID), "Model already exists");
+        require(!existingModelCIDs[_newModelCID], "Model already exists");
 
         uint[] memory modelIndices = getModelIndicesAndValidate(client.latestModelIndex, _votedModelCIDs);
 
         models.push(Model(_newModelCID, client.index));
+        existingModelCIDs[_newModelCID] = true;
         client.hasLearningRight = false;
 
         for (uint i = 0; i < modelIndices.length; i++) {
@@ -124,24 +127,11 @@ contract FederatedLearning is ERC20 {
         }
         clientInfo[oldestClientAddress].hasLearningRight = false;
     }
-
     
     // calculate a random number between 0 and max - 1
     function random(uint max, uint nonce) private view returns (uint) {
         return uint(keccak256(abi.encodePacked(block.timestamp, nonce))) % max;
     }
-
-
-    // Check if the model CID already exists in `models`.
-    function modelExists(string memory _CID) private view returns (bool) {
-        for (uint i = 0; i < models.length; i++) {
-            if (keccak256(abi.encodePacked(models[i].CID)) == keccak256(abi.encodePacked(_CID))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     
     // convert model CIDs to indices. check if indices are valid at the same time.
     function getModelIndicesAndValidate(uint latestModelIndex, string[] memory _modelCIDs) private view returns (uint[] memory) {
