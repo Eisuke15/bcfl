@@ -66,8 +66,7 @@ contract FederatedLearning is ERC20 {
         require(client.hasLearningRight, "No learning right");
         require(!modelExists(_newModelCID), "Model already exists");
 
-        uint[] memory modelIndices = getModelIndices(_votedModelCIDs);
-        validateModelIndices(client.latestModelIndex, modelIndices);
+        uint[] memory modelIndices = getModelIndicesAndValidate(client.latestModelIndex, _votedModelCIDs);
 
         models.push(Model(_newModelCID, client.index));
         client.hasLearningRight = false;
@@ -143,32 +142,29 @@ contract FederatedLearning is ERC20 {
         return false;
     }
 
-    // Convert the model CIDs to indices of `models`.
-    function getModelIndices(string[] memory _modelCIDs) private view returns (uint[] memory) {
+    
+    // convert model CIDs to indices. check if indices are valid at the same time.
+    function getModelIndicesAndValidate(uint latestModelIndex, string[] memory _modelCIDs) private view returns (uint[] memory) {
         uint[] memory indices = new uint[](_modelCIDs.length);
+        uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
+        require(_voteNum == _modelCIDs.length, "Invalid number of vote");
+
+        uint startModelIndex = latestModelIndex > VotableModelNum ? latestModelIndex - VotableModelNum : 0;
+
         for (uint i = 0; i < _modelCIDs.length; i++) {
-            for (uint j = 0; j < models.length; j++) {
+            bool found = false;
+            for (uint j = startModelIndex; j < latestModelIndex; j++) {
                 if (keccak256(abi.encodePacked(models[j].CID)) == keccak256(abi.encodePacked(_modelCIDs[i]))) {
                     indices[i] = j;
+                    found = true;
                     break;
                 }
             }
+            require(found, "Invalid model index");
         }
         return indices;
     }
 
-    // Validate the indices of the models that a client voted.
-    function validateModelIndices(uint latestModelIndex, uint[] memory modelIndices) private view {
-        uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
-
-        require(_voteNum == modelIndices.length, "Invalid number of vote"); // ここが機能してない
-        if (modelIndices.length != 0) {
-            for (uint i = 0; i < modelIndices.length; i++) {
-                require(modelIndices[i] < latestModelIndex, "Invalid model index"); 
-                require(modelIndices[i] >= (latestModelIndex > VotableModelNum ? latestModelIndex - VotableModelNum : 0), "Invalid model index");
-            }
-        }
-    }
 
     function getEligibleClientIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](clients.length);

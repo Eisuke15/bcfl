@@ -3,13 +3,17 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("FederatedLearning", function () {
-  let FederatedLearning, federatedLearning, initialModelCID, alice, bob, charlie, david, eve, frank, george, hannah, ian, jane, kyle, lisa;
+  let FederatedLearning, federatedLearning, initialModelCID, alice, bob, charlie, david, eve, frank, george, hannah, ian, jane, kyle, lisa, clientNumThres, clientWithLearningRightNum, votableModelNum, voteNum;
 
   beforeEach(async () => {
     FederatedLearning = await ethers.getContractFactory("FederatedLearning");
     initialModelCID = "initialModelCID";
+    clientNumThres = 10;
+    clientWithLearningRightNum = 3;
+    votableModelNum = 3;
+    voteNum = 1;
     [alice, bob, charlie, david, eve, frank, george, hannah, ian, jane, kyle, lisa] = await ethers.getSigners();
-    federatedLearning = await FederatedLearning.deploy(initialModelCID);
+    federatedLearning = await FederatedLearning.deploy(initialModelCID, clientNumThres, clientWithLearningRightNum, votableModelNum, voteNum);
   });
 
   describe("register", () => {
@@ -49,7 +53,7 @@ describe("FederatedLearning", function () {
     });
 
     it("should not allow submitting model without enough clients", async () => {
-      const federatedLearning2 = await FederatedLearning.deploy(initialModelCID);
+      const federatedLearning2 = await FederatedLearning.deploy(initialModelCID, clientNumThres, clientWithLearningRightNum, votableModelNum, voteNum);
       await federatedLearning2.connect(alice).register();
       await expect(federatedLearning2.connect(alice).submitModel("newModelCID", [])).to.be.revertedWith("Not enough clients");
     });
@@ -71,16 +75,17 @@ describe("FederatedLearning", function () {
       
       // Check that the new model is added to the models array
       const model = await federatedLearning.models(0);
+      const clientInfo = await federatedLearning.clientInfo(clientWithLearningRight.address);
+
       expect({
         CID: model.CID,
-        author: model.author
+        authorIndex: model.authorIndex
       }).to.deep.equal({
         CID: "newModelCID",
-        author: clientWithLearningRight.address
+        authorIndex: clientInfo.index,
       });
 
       // Check that the client submitted the model has no learning right
-      const clientInfo = await federatedLearning.clientInfo(clientWithLearningRight.address);
       expect(clientInfo.hasLearningRight).to.equal(false);
       
       // Check that the client with latest learning right has correct latestModelIndex
