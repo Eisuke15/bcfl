@@ -88,9 +88,9 @@ contract FederatedLearning is ERC20 {
 
         require(eligibleClientIndices.length >= ClientWithRightNum - _clientWithRightNum, "Not enough eligible clients");
 
-        uint salt = 0;
+        uint nonce = 0;
         while (_clientWithRightNum < ClientWithRightNum) {
-            uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, salt++)];
+            uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
             Client storage client = clientInfo[clients[selectedClientIndex]];
             client.hasLearningRight = true;
             client.latestModelIndex = models.length;
@@ -128,8 +128,8 @@ contract FederatedLearning is ERC20 {
 
     
     // calculate a random number between 0 and max - 1
-    function random(uint max, uint counter) private view returns (uint) {
-        return uint(keccak256(abi.encodePacked(block.timestamp, counter))) % max;
+    function random(uint max, uint nonce) private view returns (uint) {
+        return uint(keccak256(abi.encodePacked(block.timestamp, nonce))) % max;
     }
 
 
