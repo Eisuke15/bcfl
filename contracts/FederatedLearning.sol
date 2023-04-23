@@ -62,6 +62,7 @@ contract FederatedLearning is ERC20 {
     }
 
     // Submit a new model and vote for existing models.
+    // Time complexity: O(clients.length + VoteNum * VotableModelNum)
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(clients.length >= ClientNumThres, "Not enough clients");
         Client storage client = clientInfo[msg.sender];
@@ -84,6 +85,8 @@ contract FederatedLearning is ERC20 {
     }
 
     // Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
+    // Time complexity (first): O(ClientNumThres^2)
+    // Time complexity (after first):  O(clients.length + VotableModelNum)
     function grantLearningRights() private {
         uint[] memory eligibleClientIndices = getEligibleClientIndices();
         uint _clientWithRightNum = countClientsWithRight();
@@ -104,6 +107,7 @@ contract FederatedLearning is ERC20 {
     }
 
     // Count the number of clients with learning right.
+    // Time complexity: O(client.length)
     function countClientsWithRight() private view returns (uint) {
         uint numClientsWithRight = 0;
         for (uint i = 0; i < clients.length; i++) {
@@ -115,6 +119,7 @@ contract FederatedLearning is ERC20 {
     }
 
     // Revoke the learning right of the client who got learning right the earliest.
+    // Time complexity: O(client.length)
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
         address oldestClientAddress;
@@ -134,6 +139,7 @@ contract FederatedLearning is ERC20 {
     }
     
     // convert model CIDs to indices. check if indices are valid at the same time.
+    // Time complexity: O(VoteNum * VotableModelNum)
     function getModelIndicesAndValidate(uint latestModelIndex, string[] memory _modelCIDs) private view returns (uint[] memory) {
         uint[] memory indices = new uint[](_modelCIDs.length);
         uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
@@ -155,7 +161,8 @@ contract FederatedLearning is ERC20 {
         return indices;
     }
 
-
+    // Get the indices of clients who have not yet acquired learning right nor submitted a model recently. 
+    // Time complexity: O(clients.length + VotableModelNum)
     function getEligibleClientIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](clients.length);
         uint numEligibleClients = clients.length;
