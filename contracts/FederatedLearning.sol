@@ -11,7 +11,7 @@ contract FederatedLearning is ERC20 {
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
     // Sum of WorkerWithLRNum and VotableModelNum must be far less than MinWorkerNum.
 
-    uint public VoteNum; // The number of votes that a client can put.
+    uint public VoteNum; // The number of votes that a worker can put.
 
     string public initialModelCID; // The CID of the initial model.
 
@@ -33,7 +33,7 @@ contract FederatedLearning is ERC20 {
 
     mapping(string => bool) public existingModelCIDs; // The mapping of existing model CIDs.
 
-    event LearningRightGranted(address indexed client, uint indexed latestModelIndex);
+    event LearningRightGranted(address indexed worker, uint indexed latestModelIndex);
 
     constructor(
         string memory _initialModelCID,
@@ -49,7 +49,7 @@ contract FederatedLearning is ERC20 {
         VoteNum = _VoteNum;
     }
 
-    // @notice Register submitter as a client.
+    // @notice Register submitter as a worker.
     function register() external {
         require(!workerInfo[msg.sender].registered, "Already registered");
         workerInfo[msg.sender].registered = true;
@@ -67,15 +67,15 @@ contract FederatedLearning is ERC20 {
     // @param _votedModelCIDs The CIDs of the models voted by worker.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(workers.length >= MinWorkerNum, "Not enough workers");
-        Client storage client = workerInfo[msg.sender];
-        require(client.hasLearningRight, "No learning right");
+        Client storage worker = workerInfo[msg.sender];
+        require(worker.hasLearningRight, "No learning right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
 
-        uint[] memory modelIndices = getModelIndicesAndValidate(client.latestModelIndex, _votedModelCIDs);
+        uint[] memory modelIndices = getModelIndicesAndValidate(worker.latestModelIndex, _votedModelCIDs);
 
-        models.push(Model(_newModelCID, client.index));
+        models.push(Model(_newModelCID, worker.index));
         existingModelCIDs[_newModelCID] = true;
-        client.hasLearningRight = false;
+        worker.hasLearningRight = false;
 
         for (uint i = 0; i < modelIndices.length; i++) {
             Model storage votedModel = models[modelIndices[i]];
@@ -98,9 +98,9 @@ contract FederatedLearning is ERC20 {
         uint nonce = 0;
         while (_workerWithLRNum < WorkerWithLRNum) {
             uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
-            Client storage client = workerInfo[workers[selectedClientIndex]];
-            client.hasLearningRight = true;
-            client.latestModelIndex = models.length;
+            Client storage worker = workerInfo[workers[selectedClientIndex]];
+            worker.hasLearningRight = true;
+            worker.latestModelIndex = models.length;
             emit LearningRightGranted(workers[selectedClientIndex], models.length);
             _workerWithLRNum++;
             
@@ -109,7 +109,7 @@ contract FederatedLearning is ERC20 {
     }
 
     // Count the number of workers with learning right.
-    // Time complexity: O(client.length)
+    // Time complexity: O(worker.length)
     function countClientsWithRight() private view returns (uint) {
         uint numClientsWithRight = 0;
         for (uint i = 0; i < workers.length; i++) {
@@ -120,15 +120,15 @@ contract FederatedLearning is ERC20 {
         return numClientsWithRight;
     }
 
-    // Revoke the learning right of the client who got learning right the earliest.
-    // Time complexity: O(client.length)
+    // Revoke the learning right of the worker who got learning right the earliest.
+    // Time complexity: O(worker.length)
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
         address oldestClientAddress;
         for (uint i = 0; i < workers.length; i++) {
-            Client storage client = workerInfo[workers[i]];
-            if (client.hasLearningRight && client.latestModelIndex < oldestModelIndex) {
-                oldestModelIndex = client.latestModelIndex;
+            Client storage worker = workerInfo[workers[i]];
+            if (worker.hasLearningRight && worker.latestModelIndex < oldestModelIndex) {
+                oldestModelIndex = worker.latestModelIndex;
                 oldestClientAddress = workers[i];
             }
         }
@@ -170,12 +170,12 @@ contract FederatedLearning is ERC20 {
         uint numEligibleClients = workers.length;
         for (uint i = 0; i < workers.length; i++) {
             isEligible[i] = !workerInfo[workers[i]].hasLearningRight;
-            // decrement numEligibleClients if the client is not eligible
+            // decrement numEligibleClients if the worker is not eligible
             numEligibleClients -= isEligible[i] ? 0 : 1;
         }
 
         for (uint i = models.length; i > 0 && (models.length > VotableModelNum && i > models.length - VotableModelNum); i--) {
-            // decrement numEligibleClients if the client is still eligible
+            // decrement numEligibleClients if the worker is still eligible
             numEligibleClients -= isEligible[models[i - 1].authorIndex] ? 1 : 0;
             isEligible[models[i - 1].authorIndex] = false;
         }
