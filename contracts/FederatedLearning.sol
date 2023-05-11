@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract FederatedLearning is ERC20 {
     uint public ClientNumThres; // The threshold of the number of clients
 
-    uint public ClientWithRightNum; // The number of clients with learning right. This value should be larger.
+    uint public ClientWithLRNum; // The number of clients with learning right. This value should be larger.
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
-    // Sum of ClientWithRightNum and VotableModelNum must be far less than ClientNumThres.
+    // Sum of ClientWithLRNum and VotableModelNum must be far less than ClientNumThres.
 
     uint public VoteNum; // The number of votes that a client can put.
 
@@ -38,13 +38,13 @@ contract FederatedLearning is ERC20 {
     constructor(
         string memory _initialModelCID,
         uint _ClientNumThres,
-        uint _ClientWithRightNum,
+        uint _ClientWithLRNum,
         uint _VotableModelNum,
         uint _VoteNum
         ) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
         ClientNumThres = _ClientNumThres;
-        ClientWithRightNum = _ClientWithRightNum;
+        ClientWithLRNum = _ClientWithLRNum;
         VotableModelNum = _VotableModelNum;
         VoteNum = _VoteNum;
     }
@@ -91,10 +91,10 @@ contract FederatedLearning is ERC20 {
         uint[] memory eligibleClientIndices = getEligibleClientIndices();
         uint _clientWithRightNum = countClientsWithRight();
 
-        require(eligibleClientIndices.length >= ClientWithRightNum - _clientWithRightNum, "Not enough eligible clients");
+        require(eligibleClientIndices.length >= ClientWithLRNum - _clientWithRightNum, "Not enough eligible clients");
 
         uint nonce = 0;
-        while (_clientWithRightNum < ClientWithRightNum) {
+        while (_clientWithRightNum < ClientWithLRNum) {
             uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
             Client storage client = clientInfo[clients[selectedClientIndex]];
             client.hasLearningRight = true;
