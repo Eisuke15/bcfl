@@ -5,11 +5,11 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract FederatedLearning is ERC20 {
-    uint public ClientNumThres; // The threshold of the number of clients
+    uint public MinWorkerNum; // The threshold of the number of clients
 
     uint public ClientWithLRNum; // The number of clients with learning right. This value should be larger.
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
-    // Sum of ClientWithLRNum and VotableModelNum must be far less than ClientNumThres.
+    // Sum of ClientWithLRNum and VotableModelNum must be far less than MinWorkerNum.
 
     uint public VoteNum; // The number of votes that a client can put.
 
@@ -37,13 +37,13 @@ contract FederatedLearning is ERC20 {
 
     constructor(
         string memory _initialModelCID,
-        uint _ClientNumThres,
+        uint _MinWorkerNum,
         uint _ClientWithLRNum,
         uint _VotableModelNum,
         uint _VoteNum
         ) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
-        ClientNumThres = _ClientNumThres;
+        MinWorkerNum = _MinWorkerNum;
         ClientWithLRNum = _ClientWithLRNum;
         VotableModelNum = _VotableModelNum;
         VoteNum = _VoteNum;
@@ -56,7 +56,7 @@ contract FederatedLearning is ERC20 {
         clientInfo[msg.sender].index = clients.length;
         clients.push(msg.sender);
 
-        if (clients.length == ClientNumThres) {
+        if (clients.length == MinWorkerNum) {
             grantLearningRights();
         }
     }
@@ -66,7 +66,7 @@ contract FederatedLearning is ERC20 {
     // @param _newModelCID The CID of the new model submitted by worker.
     // @param _votedModelCIDs The CIDs of the models voted by worker.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
-        require(clients.length >= ClientNumThres, "Not enough clients");
+        require(clients.length >= MinWorkerNum, "Not enough clients");
         Client storage client = clientInfo[msg.sender];
         require(client.hasLearningRight, "No learning right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
