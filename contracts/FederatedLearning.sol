@@ -5,9 +5,9 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract FederatedLearning is ERC20 {
-    uint public MinWorkerNum; // The threshold of the number of clients
+    uint public MinWorkerNum; // The threshold of the number of workers
 
-    uint public WorkerWithLRNum; // The number of clients with learning right. This value should be larger.
+    uint public WorkerWithLRNum; // The number of workers with learning right. This value should be larger.
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
     // Sum of WorkerWithLRNum and VotableModelNum must be far less than MinWorkerNum.
 
@@ -27,7 +27,7 @@ contract FederatedLearning is ERC20 {
         uint authorIndex;
     }
 
-    address[] public clients; // The list of registered clients.
+    address[] public workers; // The list of registered workers.
     mapping(address => Client) public clientInfo;
     Model[] public models; // The list of submitted models.
 
@@ -53,20 +53,20 @@ contract FederatedLearning is ERC20 {
     function register() external {
         require(!clientInfo[msg.sender].registered, "Already registered");
         clientInfo[msg.sender].registered = true;
-        clientInfo[msg.sender].index = clients.length;
-        clients.push(msg.sender);
+        clientInfo[msg.sender].index = workers.length;
+        workers.push(msg.sender);
 
-        if (clients.length == MinWorkerNum) {
+        if (workers.length == MinWorkerNum) {
             grantLearningRights();
         }
     }
 
     // @notice Submit a new model and vote for existing models.
-    // @dev Time complexity: O(clients.length + VoteNum * VotableModelNum)
+    // @dev Time complexity: O(workers.length + VoteNum * VotableModelNum)
     // @param _newModelCID The CID of the new model submitted by worker.
     // @param _votedModelCIDs The CIDs of the models voted by worker.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
-        require(clients.length >= MinWorkerNum, "Not enough clients");
+        require(workers.length >= MinWorkerNum, "Not enough workers");
         Client storage client = clientInfo[msg.sender];
         require(client.hasLearningRight, "No learning right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
@@ -79,41 +79,41 @@ contract FederatedLearning is ERC20 {
 
         for (uint i = 0; i < modelIndices.length; i++) {
             Model storage votedModel = models[modelIndices[i]];
-            _mint(clients[votedModel.authorIndex], 1);
+            _mint(workers[votedModel.authorIndex], 1);
         }
 
         revokeOldestLearningRight();
         grantLearningRights();
     }
 
-    // @notice Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
+    // @notice Grant study rights to workers who have not yet acquired study rights until the total number of workers reaches the specified number.
     // @dev Time complexity (first): O(MinWorkerNum^2)
-    // @dev Time complexity (after first):  O(clients.length + VotableModelNum)
+    // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
     function grantLearningRights() private {
         uint[] memory eligibleClientIndices = getEligibleClientIndices();
         uint _clientWithRightNum = countClientsWithRight();
 
-        require(eligibleClientIndices.length >= WorkerWithLRNum - _clientWithRightNum, "Not enough eligible clients");
+        require(eligibleClientIndices.length >= WorkerWithLRNum - _clientWithRightNum, "Not enough eligible workers");
 
         uint nonce = 0;
         while (_clientWithRightNum < WorkerWithLRNum) {
             uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
-            Client storage client = clientInfo[clients[selectedClientIndex]];
+            Client storage client = clientInfo[workers[selectedClientIndex]];
             client.hasLearningRight = true;
             client.latestModelIndex = models.length;
-            emit LearningRightGranted(clients[selectedClientIndex], models.length);
+            emit LearningRightGranted(workers[selectedClientIndex], models.length);
             _clientWithRightNum++;
             
             eligibleClientIndices = getEligibleClientIndices();
         }
     }
 
-    // Count the number of clients with learning right.
+    // Count the number of workers with learning right.
     // Time complexity: O(client.length)
     function countClientsWithRight() private view returns (uint) {
         uint numClientsWithRight = 0;
-        for (uint i = 0; i < clients.length; i++) {
-            if (clientInfo[clients[i]].hasLearningRight) {
+        for (uint i = 0; i < workers.length; i++) {
+            if (clientInfo[workers[i]].hasLearningRight) {
                 numClientsWithRight++;
             }
         }
@@ -125,11 +125,11 @@ contract FederatedLearning is ERC20 {
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
         address oldestClientAddress;
-        for (uint i = 0; i < clients.length; i++) {
-            Client storage client = clientInfo[clients[i]];
+        for (uint i = 0; i < workers.length; i++) {
+            Client storage client = clientInfo[workers[i]];
             if (client.hasLearningRight && client.latestModelIndex < oldestModelIndex) {
                 oldestModelIndex = client.latestModelIndex;
-                oldestClientAddress = clients[i];
+                oldestClientAddress = workers[i];
             }
         }
         clientInfo[oldestClientAddress].hasLearningRight = false;
@@ -163,13 +163,13 @@ contract FederatedLearning is ERC20 {
         return indices;
     }
 
-    // Get the indices of clients who have not yet acquired learning right nor submitted a model recently. 
-    // Time complexity: O(clients.length + VotableModelNum)
+    // Get the indices of workers who have not yet acquired learning right nor submitted a model recently. 
+    // Time complexity: O(workers.length + VotableModelNum)
     function getEligibleClientIndices() private view returns (uint[] memory) {
-        bool[] memory isEligible = new bool[](clients.length);
-        uint numEligibleClients = clients.length;
-        for (uint i = 0; i < clients.length; i++) {
-            isEligible[i] = !clientInfo[clients[i]].hasLearningRight;
+        bool[] memory isEligible = new bool[](workers.length);
+        uint numEligibleClients = workers.length;
+        for (uint i = 0; i < workers.length; i++) {
+            isEligible[i] = !clientInfo[workers[i]].hasLearningRight;
             // decrement numEligibleClients if the client is not eligible
             numEligibleClients -= isEligible[i] ? 0 : 1;
         }
@@ -183,7 +183,7 @@ contract FederatedLearning is ERC20 {
         // return indices where isEligible is true
         uint[] memory eligibleClientIndices = new uint[](numEligibleClients);
         uint index = 0;
-        for (uint i = 0; i < clients.length; i++) {
+        for (uint i = 0; i < workers.length; i++) {
             if (isEligible[i]) {
                 eligibleClientIndices[index++] = i;
             }
