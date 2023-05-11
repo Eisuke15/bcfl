@@ -49,7 +49,7 @@ contract FederatedLearning is ERC20 {
         VoteNum = _VoteNum;
     }
 
-    // Register as a client.
+    // @notice Register submitter as a client.
     function register() external {
         require(!clientInfo[msg.sender].registered, "Already registered");
         clientInfo[msg.sender].registered = true;
@@ -61,8 +61,10 @@ contract FederatedLearning is ERC20 {
         }
     }
 
-    // Submit a new model and vote for existing models.
-    // Time complexity: O(clients.length + VoteNum * VotableModelNum)
+    // @notice Submit a new model and vote for existing models.
+    // @dev Time complexity: O(clients.length + VoteNum * VotableModelNum)
+    // @param _newModelCID The CID of the new model submitted by worker.
+    // @param _votedModelCIDs The CIDs of the models voted by worker.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(clients.length >= ClientNumThres, "Not enough clients");
         Client storage client = clientInfo[msg.sender];
@@ -84,9 +86,9 @@ contract FederatedLearning is ERC20 {
         grantLearningRights();
     }
 
-    // Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
-    // Time complexity (first): O(ClientNumThres^2)
-    // Time complexity (after first):  O(clients.length + VotableModelNum)
+    // @notice Grant study rights to clients who have not yet acquired study rights until the total number of clients reaches the specified number.
+    // @dev Time complexity (first): O(MinWorkerNum^2)
+    // @dev Time complexity (after first):  O(clients.length + VotableModelNum)
     function grantLearningRights() private {
         uint[] memory eligibleClientIndices = getEligibleClientIndices();
         uint _clientWithRightNum = countClientsWithRight();
