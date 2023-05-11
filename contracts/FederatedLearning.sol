@@ -15,7 +15,7 @@ contract FederatedLearning is ERC20 {
 
     string public initialModelCID; // The CID of the initial model.
 
-    struct Client {
+    struct Worker {
         uint index;
         bool registered;
         bool hasLearningRight;
@@ -28,7 +28,7 @@ contract FederatedLearning is ERC20 {
     }
 
     address[] public workers; // The list of registered workers.
-    mapping(address => Client) public workerInfo;
+    mapping(address => Worker) public workerInfo;
     Model[] public models; // The list of submitted models.
 
     mapping(string => bool) public existingModelCIDs; // The mapping of existing model CIDs.
@@ -57,7 +57,7 @@ contract FederatedLearning is ERC20 {
         workers.push(msg.sender);
 
         if (workers.length == MinWorkerNum) {
-            grantLearningRights();
+            grantLearningRightsToEligibleWorkersRandomly();
         }
     }
 
@@ -67,7 +67,7 @@ contract FederatedLearning is ERC20 {
     // @param _votedModelCIDs The CIDs of the models voted by worker.
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(workers.length >= MinWorkerNum, "Not enough workers");
-        Client storage worker = workerInfo[msg.sender];
+        Worker storage worker = workerInfo[msg.sender];
         require(worker.hasLearningRight, "No learning right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
 
@@ -83,56 +83,56 @@ contract FederatedLearning is ERC20 {
         }
 
         revokeOldestLearningRight();
-        grantLearningRights();
+        grantLearningRightsToEligibleWorkersRandomly();
     }
 
     // @notice Grant study rights to workers who have not yet acquired study rights until the total number of workers reaches the specified number.
     // @dev Time complexity (first): O(MinWorkerNum^2)
     // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
-    function grantLearningRights() private {
-        uint[] memory eligibleClientIndices = getEligibleClientIndices();
-        uint _workerWithLRNum = countClientsWithRight();
+    function grantLearningRightsToEligibleWorkersRandomly() private {
+        uint[] memory eligibleWorkerIndices = getEligibleWorkerIndices();
+        uint _workerWithLRNum = countWorkersWithRight();
 
-        require(eligibleClientIndices.length >= WorkerWithLRNum - _workerWithLRNum, "Not enough eligible workers");
+        require(eligibleWorkerIndices.length >= WorkerWithLRNum - _workerWithLRNum, "Not enough eligible workers");
 
         uint nonce = 0;
         while (_workerWithLRNum < WorkerWithLRNum) {
-            uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
-            Client storage worker = workerInfo[workers[selectedClientIndex]];
+            uint selectedWorkerIndex = eligibleWorkerIndices[random(eligibleWorkerIndices.length, nonce++)];
+            Worker storage worker = workerInfo[workers[selectedWorkerIndex]];
             worker.hasLearningRight = true;
             worker.latestModelIndex = models.length;
-            emit LearningRightGranted(workers[selectedClientIndex], models.length);
+            emit LearningRightGranted(workers[selectedWorkerIndex], models.length);
             _workerWithLRNum++;
             
-            eligibleClientIndices = getEligibleClientIndices();
+            eligibleWorkerIndices = getEligibleWorkerIndices();
         }
     }
 
     // @notice Count the number of workers with learning right.
     // @dev Time complexity: O(worker.length)
-    function countClientsWithRight() private view returns (uint) {
-        uint numClientsWithRight = 0;
+    function countWorkersWithRight() private view returns (uint) {
+        uint numWorkersWithRight = 0;
         for (uint i = 0; i < workers.length; i++) {
             if (workerInfo[workers[i]].hasLearningRight) {
-                numClientsWithRight++;
+                numWorkersWithRight++;
             }
         }
-        return numClientsWithRight;
+        return numWorkersWithRight;
     }
 
     // @notice Revoke the learning right of the worker who got learning right the earliest.
     // @dev Time complexity: O(worker.length)
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
-        address oldestClientAddress;
+        address oldestWorkerAddress;
         for (uint i = 0; i < workers.length; i++) {
-            Client storage worker = workerInfo[workers[i]];
+            Worker storage worker = workerInfo[workers[i]];
             if (worker.hasLearningRight && worker.latestModelIndex < oldestModelIndex) {
                 oldestModelIndex = worker.latestModelIndex;
-                oldestClientAddress = workers[i];
+                oldestWorkerAddress = workers[i];
             }
         }
-        workerInfo[oldestClientAddress].hasLearningRight = false;
+        workerInfo[oldestWorkerAddress].hasLearningRight = false;
     }
     
     // @notice Calculate a random number between 0 and max - 1
@@ -165,31 +165,31 @@ contract FederatedLearning is ERC20 {
 
     // @notice Get the indices of workers who have not yet acquired learning right nor submitted a model recently. 
     // @dev Time complexity: O(workers.length + VotableModelNum)
-    function getEligibleClientIndices() private view returns (uint[] memory) {
+    function getEligibleWorkerIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](workers.length);
-        uint numEligibleClients = workers.length;
+        uint numEligibleWorkers = workers.length;
         for (uint i = 0; i < workers.length; i++) {
             isEligible[i] = !workerInfo[workers[i]].hasLearningRight;
-            // decrement numEligibleClients if the worker is not eligible
-            numEligibleClients -= isEligible[i] ? 0 : 1;
+            // decrement numEligibleWorkers if the worker is not eligible
+            numEligibleWorkers -= isEligible[i] ? 0 : 1;
         }
 
         for (uint i = models.length; i > 0 && (models.length > VotableModelNum && i > models.length - VotableModelNum); i--) {
-            // decrement numEligibleClients if the worker is still eligible
-            numEligibleClients -= isEligible[models[i - 1].authorIndex] ? 1 : 0;
+            // decrement numEligibleWorkers if the worker is still eligible
+            numEligibleWorkers -= isEligible[models[i - 1].authorIndex] ? 1 : 0;
             isEligible[models[i - 1].authorIndex] = false;
         }
 
         // return indices where isEligible is true
-        uint[] memory eligibleClientIndices = new uint[](numEligibleClients);
+        uint[] memory eligibleWorkerIndices = new uint[](numEligibleWorkers);
         uint index = 0;
         for (uint i = 0; i < workers.length; i++) {
             if (isEligible[i]) {
-                eligibleClientIndices[index++] = i;
+                eligibleWorkerIndices[index++] = i;
             }
         }
 
-        return eligibleClientIndices;
+        return eligibleWorkerIndices;
     }
 }
 
