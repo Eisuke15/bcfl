@@ -108,8 +108,8 @@ contract FederatedLearning is ERC20 {
         }
     }
 
-    // Count the number of workers with learning right.
-    // Time complexity: O(worker.length)
+    // @notice Count the number of workers with learning right.
+    // @dev Time complexity: O(worker.length)
     function countClientsWithRight() private view returns (uint) {
         uint numClientsWithRight = 0;
         for (uint i = 0; i < workers.length; i++) {
@@ -120,8 +120,8 @@ contract FederatedLearning is ERC20 {
         return numClientsWithRight;
     }
 
-    // Revoke the learning right of the worker who got learning right the earliest.
-    // Time complexity: O(worker.length)
+    // @notice Revoke the learning right of the worker who got learning right the earliest.
+    // @dev Time complexity: O(worker.length)
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
         address oldestClientAddress;
@@ -135,13 +135,13 @@ contract FederatedLearning is ERC20 {
         workerInfo[oldestClientAddress].hasLearningRight = false;
     }
     
-    // calculate a random number between 0 and max - 1
+    // @notice Calculate a random number between 0 and max - 1
     function random(uint max, uint nonce) private view returns (uint) {
         return uint(keccak256(abi.encodePacked(block.timestamp, nonce))) % max;
     }
     
-    // convert model CIDs to indices. check if indices are valid at the same time.
-    // Time complexity: O(VoteNum * VotableModelNum)
+    // @notice Convert model CIDs to indices. check if indices are valid at the same time.
+    // @dev  Time complexity: O(VoteNum * VotableModelNum)
     function getModelIndicesAndValidate(uint latestModelIndex, string[] memory _modelCIDs) private view returns (uint[] memory) {
         uint[] memory indices = new uint[](_modelCIDs.length);
         uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
@@ -163,8 +163,8 @@ contract FederatedLearning is ERC20 {
         return indices;
     }
 
-    // Get the indices of workers who have not yet acquired learning right nor submitted a model recently. 
-    // Time complexity: O(workers.length + VotableModelNum)
+    // @notice Get the indices of workers who have not yet acquired learning right nor submitted a model recently. 
+    // @dev Time complexity: O(workers.length + VotableModelNum)
     function getEligibleClientIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](workers.length);
         uint numEligibleClients = workers.length;
