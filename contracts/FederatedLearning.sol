@@ -91,18 +91,18 @@ contract FederatedLearning is ERC20 {
     // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
     function grantLearningRights() private {
         uint[] memory eligibleClientIndices = getEligibleClientIndices();
-        uint _clientWithRightNum = countClientsWithRight();
+        uint _workerWithLRNum = countClientsWithRight();
 
-        require(eligibleClientIndices.length >= WorkerWithLRNum - _clientWithRightNum, "Not enough eligible workers");
+        require(eligibleClientIndices.length >= WorkerWithLRNum - _workerWithLRNum, "Not enough eligible workers");
 
         uint nonce = 0;
-        while (_clientWithRightNum < WorkerWithLRNum) {
+        while (_workerWithLRNum < WorkerWithLRNum) {
             uint selectedClientIndex = eligibleClientIndices[random(eligibleClientIndices.length, nonce++)];
             Client storage client = workerInfo[workers[selectedClientIndex]];
             client.hasLearningRight = true;
             client.latestModelIndex = models.length;
             emit LearningRightGranted(workers[selectedClientIndex], models.length);
-            _clientWithRightNum++;
+            _workerWithLRNum++;
             
             eligibleClientIndices = getEligibleClientIndices();
         }
