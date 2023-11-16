@@ -1,13 +1,16 @@
-# Sample Hardhat Project
+# Competitive and Asynchronous Blockchain-based Federated Learning
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
+テスト
+```
 npx hardhat test
-REPORT_GAS=true npx hardhat test
+```
+
+ローカルにテストチェーンを起動
+```
 npx hardhat node
+```
+
+デプロイスクリプト実行
+```
 npx hardhat run scripts/deploy.js
 ```
