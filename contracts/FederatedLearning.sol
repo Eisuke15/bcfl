@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract FederatedLearning is ERC20 {
     uint public MinWorkerNum; // The threshold of the number of workers
 
-    uint public WorkerWithLRNum; // The number of workers with learning right. This value should be larger.
+    uint public WorkerWithSRNum; // The number of workers with submission right. This value should be larger.
     uint public VotableModelNum; // The number of models that can be voted. This value should be larger.
-    // Sum of WorkerWithLRNum and VotableModelNum must be far less than MinWorkerNum.
+    // Sum of WorkerWithSRNum and VotableModelNum must be far less than MinWorkerNum.
 
     uint public VoteNum; // The number of votes that a worker can put.
 
@@ -38,13 +38,13 @@ contract FederatedLearning is ERC20 {
     constructor(
         string memory _initialModelCID,
         uint _MinWorkerNum,
-        uint _WorkerWithLRNum,
+        uint _WorkerWithSRNum,
         uint _VotableModelNum,
         uint _VoteNum
         ) ERC20("Federated Learning Token", "FLT") {
         initialModelCID = _initialModelCID;
         MinWorkerNum = _MinWorkerNum;
-        WorkerWithLRNum = _WorkerWithLRNum;
+        WorkerWithSRNum = _WorkerWithSRNum;
         VotableModelNum = _VotableModelNum;
         VoteNum = _VoteNum;
     }
@@ -68,7 +68,7 @@ contract FederatedLearning is ERC20 {
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(workers.length >= MinWorkerNum, "Not enough workers");
         Worker storage worker = workerInfo[msg.sender];
-        require(worker.hasLearningRight, "No learning right");
+        require(worker.hasLearningRight, "No submission right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
 
         uint[] memory modelIndices = getModelIndicesAndValidate(worker.latestModelIndex, _votedModelCIDs);
@@ -91,24 +91,24 @@ contract FederatedLearning is ERC20 {
     // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
     function grantLearningRightsToEligibleWorkersRandomly() private {
         uint[] memory eligibleWorkerIndices = getEligibleWorkerIndices();
-        uint _workerWithLRNum = countWorkersWithRight();
+        uint _workerWithSRNum = countWorkersWithRight();
 
-        require(eligibleWorkerIndices.length >= WorkerWithLRNum - _workerWithLRNum, "Not enough eligible workers");
+        require(eligibleWorkerIndices.length >= WorkerWithSRNum - _workerWithSRNum, "Not enough eligible workers");
 
         uint nonce = 0;
-        while (_workerWithLRNum < WorkerWithLRNum) {
+        while (_workerWithSRNum < WorkerWithSRNum) {
             uint selectedWorkerIndex = eligibleWorkerIndices[random(eligibleWorkerIndices.length, nonce++)];
             Worker storage worker = workerInfo[workers[selectedWorkerIndex]];
             worker.hasLearningRight = true;
             worker.latestModelIndex = models.length;
             emit LearningRightGranted(workers[selectedWorkerIndex], models.length);
-            _workerWithLRNum++;
+            _workerWithSRNum++;
             
             eligibleWorkerIndices = getEligibleWorkerIndices();
         }
     }
 
-    // @notice Count the number of workers with learning right.
+    // @notice Count the number of workers with submission right.
     // @dev Time complexity: O(worker.length)
     function countWorkersWithRight() private view returns (uint) {
         uint numWorkersWithRight = 0;
@@ -120,7 +120,7 @@ contract FederatedLearning is ERC20 {
         return numWorkersWithRight;
     }
 
-    // @notice Revoke the learning right of the worker who got learning right the earliest.
+    // @notice Revoke the submission right of the worker who got submission right the earliest.
     // @dev Time complexity: O(worker.length)
     function revokeOldestLearningRight() private {
         uint oldestModelIndex = models.length;
@@ -163,7 +163,7 @@ contract FederatedLearning is ERC20 {
         return indices;
     }
 
-    // @notice Get the indices of workers who have not yet acquired learning right nor submitted a model recently. 
+    // @notice Get the indices of workers who have not yet acquired submission right nor submitted a model recently. 
     // @dev Time complexity: O(workers.length + VotableModelNum)
     function getEligibleWorkerIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](workers.length);
