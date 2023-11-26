@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract FederatedLearning is ERC20 {
+contract CABFL is ERC20 {
     uint public MinWorkerNum; // The threshold of the number of workers
 
     uint public WorkerWithSRNum; // The number of workers with submission right. This value should be larger.
@@ -18,7 +18,7 @@ contract FederatedLearning is ERC20 {
     struct Worker {
         uint index;
         bool registered;
-        bool hasLearningRight;
+        bool hasSubmissionRight;
         uint latestModelIndex;
     }
 
@@ -33,7 +33,7 @@ contract FederatedLearning is ERC20 {
 
     mapping(string => bool) public existingModelCIDs; // The mapping of existing model CIDs.
 
-    event LearningRightGranted(address indexed worker, uint indexed latestModelIndex);
+    event SubmissionRightGranted(address indexed worker, uint indexed latestModelIndex);
 
     constructor(
         string memory _initialModelCID,
@@ -41,7 +41,7 @@ contract FederatedLearning is ERC20 {
         uint _WorkerWithSRNum,
         uint _VotableModelNum,
         uint _VoteNum
-        ) ERC20("Federated Learning Token", "FLT") {
+        ) ERC20("CABFL Token", "CABFLT") {
         initialModelCID = _initialModelCID;
         MinWorkerNum = _MinWorkerNum;
         WorkerWithSRNum = _WorkerWithSRNum;
@@ -57,7 +57,7 @@ contract FederatedLearning is ERC20 {
         workers.push(msg.sender);
 
         if (workers.length == MinWorkerNum) {
-            grantLearningRightsToEligibleWorkersRandomly();
+            grantSubmissionRightsToEligibleWorkersRandomly();
         }
     }
 
@@ -68,28 +68,28 @@ contract FederatedLearning is ERC20 {
     function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
         require(workers.length >= MinWorkerNum, "Not enough workers");
         Worker storage worker = workerInfo[msg.sender];
-        require(worker.hasLearningRight, "No submission right");
+        require(worker.hasSubmissionRight, "No submission right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
 
         uint[] memory modelIndices = getModelIndicesAndValidate(worker.latestModelIndex, _votedModelCIDs);
 
         models.push(Model(_newModelCID, worker.index));
         existingModelCIDs[_newModelCID] = true;
-        worker.hasLearningRight = false;
+        worker.hasSubmissionRight = false;
 
         for (uint i = 0; i < modelIndices.length; i++) {
             Model storage votedModel = models[modelIndices[i]];
             _mint(workers[votedModel.authorIndex], 1);
         }
 
-        revokeOldestLearningRight();
-        grantLearningRightsToEligibleWorkersRandomly();
+        revokeOldestSubmissionRight();
+        grantSubmissionRightsToEligibleWorkersRandomly();
     }
 
     // @notice Grant study rights to workers who have not yet acquired study rights until the total number of workers reaches the specified number.
     // @dev Time complexity (first): O(MinWorkerNum^2)
     // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
-    function grantLearningRightsToEligibleWorkersRandomly() private {
+    function grantSubmissionRightsToEligibleWorkersRandomly() private {
         uint[] memory eligibleWorkerIndices = getEligibleWorkerIndices();
         uint _workerWithSRNum = countWorkersWithRight();
 
@@ -99,9 +99,9 @@ contract FederatedLearning is ERC20 {
         while (_workerWithSRNum < WorkerWithSRNum) {
             uint selectedWorkerIndex = eligibleWorkerIndices[random(eligibleWorkerIndices.length, nonce++)];
             Worker storage worker = workerInfo[workers[selectedWorkerIndex]];
-            worker.hasLearningRight = true;
+            worker.hasSubmissionRight = true;
             worker.latestModelIndex = models.length;
-            emit LearningRightGranted(workers[selectedWorkerIndex], models.length);
+            emit SubmissionRightGranted(workers[selectedWorkerIndex], models.length);
             _workerWithSRNum++;
             
             eligibleWorkerIndices = getEligibleWorkerIndices();
@@ -113,7 +113,7 @@ contract FederatedLearning is ERC20 {
     function countWorkersWithRight() private view returns (uint) {
         uint numWorkersWithRight = 0;
         for (uint i = 0; i < workers.length; i++) {
-            if (workerInfo[workers[i]].hasLearningRight) {
+            if (workerInfo[workers[i]].hasSubmissionRight) {
                 numWorkersWithRight++;
             }
         }
@@ -122,17 +122,17 @@ contract FederatedLearning is ERC20 {
 
     // @notice Revoke the submission right of the worker who got submission right the earliest.
     // @dev Time complexity: O(worker.length)
-    function revokeOldestLearningRight() private {
+    function revokeOldestSubmissionRight() private {
         uint oldestModelIndex = models.length;
         address oldestWorkerAddress;
         for (uint i = 0; i < workers.length; i++) {
             Worker storage worker = workerInfo[workers[i]];
-            if (worker.hasLearningRight && worker.latestModelIndex < oldestModelIndex) {
+            if (worker.hasSubmissionRight && worker.latestModelIndex < oldestModelIndex) {
                 oldestModelIndex = worker.latestModelIndex;
                 oldestWorkerAddress = workers[i];
             }
         }
-        workerInfo[oldestWorkerAddress].hasLearningRight = false;
+        workerInfo[oldestWorkerAddress].hasSubmissionRight = false;
     }
     
     // @notice Calculate a random number between 0 and max - 1
@@ -169,7 +169,7 @@ contract FederatedLearning is ERC20 {
         bool[] memory isEligible = new bool[](workers.length);
         uint numEligibleWorkers = workers.length;
         for (uint i = 0; i < workers.length; i++) {
-            isEligible[i] = !workerInfo[workers[i]].hasLearningRight;
+            isEligible[i] = !workerInfo[workers[i]].hasSubmissionRight;
             // decrement numEligibleWorkers if the worker is not eligible
             numEligibleWorkers -= isEligible[i] ? 0 : 1;
         }

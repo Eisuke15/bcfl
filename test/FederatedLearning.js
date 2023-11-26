@@ -6,7 +6,7 @@ describe("FederatedLearning", function () {
   let FederatedLearning, federatedLearning, initialModelCID, alice, bob, charlie, david, eve, frank, george, hannah, ian, jane, kyle, lisa, workerNumThres, workerWithLearningRightNum, votableModelNum, voteNum;
 
   beforeEach(async () => {
-    FederatedLearning = await ethers.getContractFactory("FederatedLearning");
+    FederatedLearning = await ethers.getContractFactory("CABFL");
     initialModelCID = "initialModelCID";
     workerNumThres = 10;
     workerWithLearningRightNum = 3;
@@ -36,7 +36,7 @@ describe("FederatedLearning", function () {
       let numWorkersWithRight = 0;
       for (const worker of [alice, bob, charlie, david, eve, frank, george, hannah, ian, jane]) {
         const workerInfo = await federatedLearning.workerInfo(worker.address);
-        if (workerInfo.hasLearningRight) {
+        if (workerInfo.hasSubmissionRight) {
           numWorkersWithRight++;
         }
       }
@@ -86,7 +86,7 @@ describe("FederatedLearning", function () {
       });
 
       // Check that the worker submitted the model has no submission right
-      expect(workerInfo.hasLearningRight).to.equal(false);
+      expect(workerInfo.hasSubmissionRight).to.equal(false);
       
       // Check that the worker with latest submission right has correct latestModelIndex
       const workerWithLatestLearningRight = await getWorkerWithLatestLearningRight();
@@ -94,18 +94,18 @@ describe("FederatedLearning", function () {
 
       expect({
         registered: workerInfoWithLatestLearningRight.registered,
-        hasLearningRight: workerInfoWithLatestLearningRight.hasLearningRight,
+        hasSubmissionRight: workerInfoWithLatestLearningRight.hasSubmissionRight,
         latestModelIndex: Number(workerInfoWithLatestLearningRight.latestModelIndex),
       }).to.deep.equal({
         registered: true,
-        hasLearningRight: true,
+        hasSubmissionRight: true,
         latestModelIndex: 1,
       });
   
       let numWorkersWithRight = 0;
       for (const worker of [alice, bob, charlie, david, eve, frank, george, hannah, ian, jane]) {
         const workerInfo = await federatedLearning.workerInfo(worker.address);
-        if (workerInfo.hasLearningRight) {
+        if (workerInfo.hasSubmissionRight) {
           numWorkersWithRight++;
         }
       }
@@ -127,7 +127,7 @@ describe("FederatedLearning", function () {
   async function getWorkerWithLearningRight() {
     for (const worker of [alice, bob, charlie, david, eve, frank, george, hannah, ian, jane]) {
       const workerInfo = await federatedLearning.workerInfo(worker.address);
-      if (workerInfo.hasLearningRight) {
+      if (workerInfo.hasSubmissionRight) {
         return worker;
       }
     }
@@ -138,7 +138,7 @@ describe("FederatedLearning", function () {
     let latestModelIndex = 0;
     for (const worker of [alice, bob, charlie, david, eve, frank, george, hannah, ian, jane]) {
       const workerInfo = await federatedLearning.workerInfo(worker.address);
-      if (workerInfo.hasLearningRight) {
+      if (workerInfo.hasSubmissionRight) {
         if (workerInfo.latestModelIndex > latestModelIndex) {
           latestModelIndex = workerInfo.latestModelIndex;
           workerWithLatestLearningRight = worker;

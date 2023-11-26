@@ -1,8 +1,8 @@
 const hre = require("hardhat");
 
 async function main() {
-  const FederatedLearning = await hre.ethers.getContractFactory("FederatedLearning");
-  const federatedLearning = await FederatedLearning.deploy("SampleInitialModelCID", 10, 5, 3, 1);
+  const FederatedLearning = await hre.ethers.getContractFactory("CABFL");
+  const federatedLearning = await FederatedLearning.deploy("SampleInitialModelCID", 10, 5, 5, 1);
 
   await federatedLearning.deployed();
 
