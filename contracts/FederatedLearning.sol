@@ -33,7 +33,10 @@ contract CABFL is ERC20 {
 
     mapping(string => bool) public existingModelCIDs; // The mapping of existing model CIDs.
 
-    event SubmissionRightGranted(address indexed worker, uint indexed latestModelIndex);
+    event SubmissionRightGranted(
+        address indexed worker,
+        uint indexed latestModelIndex
+    );
 
     constructor(
         string memory _initialModelCID,
@@ -41,7 +44,7 @@ contract CABFL is ERC20 {
         uint _WorkerWithSRNum,
         uint _VotableModelNum,
         uint _VoteNum
-        ) ERC20("CABFL Token", "CABFLT") {
+    ) ERC20("CABFL Token", "CABFLT") {
         initialModelCID = _initialModelCID;
         MinWorkerNum = _MinWorkerNum;
         WorkerWithSRNum = _WorkerWithSRNum;
@@ -57,7 +60,7 @@ contract CABFL is ERC20 {
         workers.push(msg.sender);
 
         if (workers.length == MinWorkerNum) {
-            grantSubmissionRightsToEligibleWorkersRandomly();
+            grantSRToEligibleWorkersRandomly();
         }
     }
 
@@ -65,13 +68,19 @@ contract CABFL is ERC20 {
     // @dev Time complexity: O(workers.length + VoteNum * VotableModelNum)
     // @param _newModelCID The CID of the new model submitted by worker.
     // @param _votedModelCIDs The CIDs of the models voted by worker.
-    function submitModel(string calldata _newModelCID, string[] calldata _votedModelCIDs) external {
+    function submitModel(
+        string calldata _newModelCID,
+        string[] calldata _votedModelCIDs
+    ) external {
         require(workers.length >= MinWorkerNum, "Not enough workers");
         Worker storage worker = workerInfo[msg.sender];
         require(worker.hasSubmissionRight, "No submission right");
         require(!existingModelCIDs[_newModelCID], "Model already exists");
 
-        uint[] memory modelIndices = getModelIndicesAndValidate(worker.latestModelIndex, _votedModelCIDs);
+        uint[] memory modelIndices = getModelIndicesAndValidate(
+            worker.latestModelIndex,
+            _votedModelCIDs
+        );
 
         models.push(Model(_newModelCID, worker.index));
         existingModelCIDs[_newModelCID] = true;
@@ -83,27 +92,35 @@ contract CABFL is ERC20 {
         }
 
         revokeOldestSubmissionRight();
-        grantSubmissionRightsToEligibleWorkersRandomly();
+        grantSRToEligibleWorkersRandomly();
     }
 
     // @notice Grant study rights to workers who have not yet acquired study rights until the total number of workers reaches the specified number.
     // @dev Time complexity (first): O(MinWorkerNum^2)
     // @dev Time complexity (after first):  O(workers.length + VotableModelNum)
-    function grantSubmissionRightsToEligibleWorkersRandomly() private {
+    function grantSRToEligibleWorkersRandomly() private {
         uint[] memory eligibleWorkerIndices = getEligibleWorkerIndices();
         uint _workerWithSRNum = countWorkersWithRight();
 
-        require(eligibleWorkerIndices.length >= WorkerWithSRNum - _workerWithSRNum, "Not enough eligible workers");
+        require(
+            eligibleWorkerIndices.length >= WorkerWithSRNum - _workerWithSRNum,
+            "Not enough eligible workers"
+        );
 
         uint nonce = 0;
         while (_workerWithSRNum < WorkerWithSRNum) {
-            uint selectedWorkerIndex = eligibleWorkerIndices[random(eligibleWorkerIndices.length, nonce++)];
+            uint selectedWorkerIndex = eligibleWorkerIndices[
+                random(eligibleWorkerIndices.length, nonce++)
+            ];
             Worker storage worker = workerInfo[workers[selectedWorkerIndex]];
             worker.hasSubmissionRight = true;
             worker.latestModelIndex = models.length;
-            emit SubmissionRightGranted(workers[selectedWorkerIndex], models.length);
+            emit SubmissionRightGranted(
+                workers[selectedWorkerIndex],
+                models.length
+            );
             _workerWithSRNum++;
-            
+
             eligibleWorkerIndices = getEligibleWorkerIndices();
         }
     }
@@ -127,32 +144,43 @@ contract CABFL is ERC20 {
         address oldestWorkerAddress;
         for (uint i = 0; i < workers.length; i++) {
             Worker storage worker = workerInfo[workers[i]];
-            if (worker.hasSubmissionRight && worker.latestModelIndex < oldestModelIndex) {
+            if (
+                worker.hasSubmissionRight &&
+                worker.latestModelIndex < oldestModelIndex
+            ) {
                 oldestModelIndex = worker.latestModelIndex;
                 oldestWorkerAddress = workers[i];
             }
         }
         workerInfo[oldestWorkerAddress].hasSubmissionRight = false;
     }
-    
+
     // @notice Calculate a random number between 0 and max - 1
     function random(uint max, uint nonce) private view returns (uint) {
         return uint(keccak256(abi.encodePacked(block.timestamp, nonce))) % max;
     }
-    
+
     // @notice Convert model CIDs to indices. check if indices are valid at the same time.
     // @dev  Time complexity: O(VoteNum * VotableModelNum)
-    function getModelIndicesAndValidate(uint latestModelIndex, string[] memory _modelCIDs) private view returns (uint[] memory) {
+    function getModelIndicesAndValidate(
+        uint latestModelIndex,
+        string[] memory _modelCIDs
+    ) private view returns (uint[] memory) {
         uint[] memory indices = new uint[](_modelCIDs.length);
         uint _voteNum = latestModelIndex < VoteNum ? latestModelIndex : VoteNum;
         require(_voteNum == _modelCIDs.length, "Invalid number of vote");
 
-        uint startModelIndex = latestModelIndex > VotableModelNum ? latestModelIndex - VotableModelNum : 0;
+        uint startModelIndex = latestModelIndex > VotableModelNum
+            ? latestModelIndex - VotableModelNum
+            : 0;
 
         for (uint i = 0; i < _modelCIDs.length; i++) {
             bool found = false;
             for (uint j = startModelIndex; j < latestModelIndex; j++) {
-                if (keccak256(abi.encodePacked(models[j].CID)) == keccak256(abi.encodePacked(_modelCIDs[i]))) {
+                if (
+                    keccak256(abi.encodePacked(models[j].CID)) ==
+                    keccak256(abi.encodePacked(_modelCIDs[i]))
+                ) {
                     indices[i] = j;
                     found = true;
                     break;
@@ -163,7 +191,7 @@ contract CABFL is ERC20 {
         return indices;
     }
 
-    // @notice Get the indices of workers who have not yet acquired submission right nor submitted a model recently. 
+    // @notice Get the indices of workers who have not yet acquired submission right nor submitted a model recently.
     // @dev Time complexity: O(workers.length + VotableModelNum)
     function getEligibleWorkerIndices() private view returns (uint[] memory) {
         bool[] memory isEligible = new bool[](workers.length);
@@ -174,7 +202,13 @@ contract CABFL is ERC20 {
             numEligibleWorkers -= isEligible[i] ? 0 : 1;
         }
 
-        for (uint i = models.length; i > 0 && (models.length > VotableModelNum && i > models.length - VotableModelNum); i--) {
+        for (
+            uint i = models.length;
+            i > 0 &&
+                (models.length > VotableModelNum &&
+                    i > models.length - VotableModelNum);
+            i--
+        ) {
             // decrement numEligibleWorkers if the worker is still eligible
             numEligibleWorkers -= isEligible[models[i - 1].authorIndex] ? 1 : 0;
             isEligible[models[i - 1].authorIndex] = false;
@@ -192,4 +226,3 @@ contract CABFL is ERC20 {
         return eligibleWorkerIndices;
     }
 }
-
